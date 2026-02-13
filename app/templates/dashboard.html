@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Weld Tracker{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Weld Inspection Dashboard</h2>
+    <div>
+        <span class="badge bg-success fs-6">{{ stats.accepted }} Accepted</span>
+        <span class="badge bg-danger fs-6">{{ stats.rejected }} Rejected</span>
+        <span class="badge bg-secondary fs-6">{{ stats.total }} Total Welds</span>
+        <span class="badge bg-info fs-6">{{ stats.reports }} Reports</span>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label small mb-0">Type</label>
+                <select name="type" class="form-select form-select-sm">
+                    <option value="">All</option>
+                    <option value="VT" {{ 'selected' if filters.type == 'VT' }}>VT</option>
+                    <option value="UT" {{ 'selected' if filters.type == 'UT' }}>UT</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label small mb-0">From</label>
+                <input type="date" name="date_from" class="form-control form-control-sm" value="{{ filters.date_from or '' }}">
+            </div>
+            <div class="col-auto">
+                <label class="form-label small mb-0">To</label>
+                <input type="date" name="date_to" class="form-control form-control-sm" value="{{ filters.date_to or '' }}">
+            </div>
+            <div class="col-auto">
+                <label class="form-label small mb-0">Result</label>
+                <select name="result" class="form-select form-select-sm">
+                    <option value="">All</option>
+                    <option value="Accept" {{ 'selected' if filters.result == 'Accept' }}>Accept</option>
+                    <option value="Reject" {{ 'selected' if filters.result == 'Reject' }}>Reject</option>
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+                <a href="{{ url_for('dashboard.index') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Data Table -->
+<div class="card">
+    <div class="card-body p-0">
+        <table id="weldTable" class="table table-striped table-hover mb-0" style="width:100%">
+            <thead>
+                <tr>
+                    <th>ISO #</th>
+                    <th>Weld #</th>
+                    <th>Package</th>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Result</th>
+                    <th>Job #</th>
+                    <th>Project</th>
+                    <th>Client</th>
+                    <th>Inspector</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for entry, report in entries %}
+                <tr>
+                    <td>{{ entry.iso_number }}</td>
+                    <td>{{ entry.weld_number }}</td>
+                    <td>{{ entry.package_number or '' }}</td>
+                    <td><span class="badge bg-{{ 'primary' if report.inspection_type == 'UT' else 'info' }}">{{ report.inspection_type }}</span></td>
+                    <td>{{ report.inspection_date.strftime('%m/%d/%Y') if report.inspection_date else '' }}</td>
+                    <td>
+                        <span class="badge bg-{{ 'success' if entry.evaluation and 'accept' in entry.evaluation.lower() else 'danger' if entry.evaluation and 'reject' in entry.evaluation.lower() else 'secondary' }}">
+                            {{ entry.evaluation }}
+                        </span>
+                    </td>
+                    <td>{{ report.job_number }}</td>
+                    <td>{{ report.project_name }}</td>
+                    <td>{{ report.client }}</td>
+                    <td>{{ report.inspector_name }}</td>
+                    <td>
+                        <a href="{{ url_for('dashboard.report_detail', report_id=report.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    $('#weldTable').DataTable({
+        pageLength: 50,
+        order: [[3, 'desc']],
+        language: {
+            search: "Search welds:"
+        }
+    });
+});
+</script>
+{% endblock %}

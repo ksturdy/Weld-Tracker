@@ -1,0 +1,43 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.drop-zone {
+    border: 2px dashed #ccc;
+    border-radius: 8px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background-color: #fafafa;
+}
+
+.drop-zone:hover {
+    border-color: #0d6efd;
+    background-color: #f0f7ff;
+}
+
+.drop-zone.drag-over {
+    border-color: #0d6efd;
+    background-color: #e7f1ff;
+}
+
+.drop-zone-text {
+    color: #666;
+}
+
+.table th {
+    white-space: nowrap;
+}
+
+.badge {
+    font-weight: 500;
+}
+
+.card {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.navbar-brand {
+    font-weight: 600;
+}

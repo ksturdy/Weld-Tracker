@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Upload PDF - Weld Tracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <h2 class="mb-4">Upload Inspection Reports</h2>
+
+        <div class="card">
+            <div class="card-body">
+                <form id="uploadForm" action="{{ url_for('upload.upload_file') }}" method="POST" enctype="multipart/form-data">
+                    <div id="dropZone" class="drop-zone mb-3">
+                        <div class="drop-zone-text">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" class="bi bi-file-earmark-pdf mb-2" viewBox="0 0 16 16">
+                                <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2M9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5z"/>
+                                <path d="M4.603 14.087a.8.8 0 0 1-.438-.42c-.195-.388-.13-.776.08-1.102.198-.307.526-.568.897-.787a7.7 7.7 0 0 1 1.482-.645 20 20 0 0 0 1.062-2.227 7.3 7.3 0 0 1-.43-1.295c-.086-.4-.119-.796-.046-1.136.075-.354.274-.672.65-.823.192-.077.4-.12.602-.077a.7.7 0 0 1 .477.365c.088.164.12.356.127.538.007.188-.012.396-.047.614-.084.51-.27 1.134-.52 1.794a11 11 0 0 0 .98 1.686 5.8 5.8 0 0 1 1.334.05c.364.066.734.195.96.465.12.144.193.32.2.518.007.192-.047.382-.138.563a1.04 1.04 0 0 1-.354.416.86.86 0 0 1-.51.138c-.331-.014-.654-.196-.933-.417a6.1 6.1 0 0 1-.911-.95 11.7 11.7 0 0 0-1.997.406 11.3 11.3 0 0 1-1.02 1.51c-.292.35-.609.656-.927.787a.8.8 0 0 1-.58.029z"/>
+                            </svg>
+                            <p class="mb-1">Drag and drop PDF files here</p>
+                            <p class="text-muted small">or click to browse</p>
+                        </div>
+                        <input type="file" id="fileInput" name="pdf_files" multiple accept=".pdf" class="d-none">
+                    </div>
+
+                    <div id="fileList" class="mb-3" style="display: none;">
+                        <h6>Selected files:</h6>
+                        <ul id="fileListItems" class="list-group"></ul>
+                    </div>
+
+                    <button type="submit" id="uploadBtn" class="btn btn-primary" disabled>
+                        Upload & Process
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">Import Stratus Map</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Upload the Stratus map Excel file to link weld labels to package numbers. This will also update any existing weld entries with their package numbers.</p>
+                <form action="{{ url_for('upload.import_stratus') }}" method="POST" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <input type="file" class="form-control" name="stratus_file" accept=".xlsx,.xls">
+                    </div>
+                    <button type="submit" class="btn btn-outline-secondary">Import Stratus Map</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileList = document.getElementById('fileList');
+const fileListItems = document.getElementById('fileListItems');
+const uploadBtn = document.getElementById('uploadBtn');
+
+dropZone.addEventListener('click', () => fileInput.click());
+
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+});
+
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('drag-over');
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    fileInput.files = e.dataTransfer.files;
+    updateFileList();
+});
+
+fileInput.addEventListener('change', updateFileList);
+
+function updateFileList() {
+    const files = fileInput.files;
+    if (files.length > 0) {
+        fileList.style.display = 'block';
+        fileListItems.innerHTML = '';
+        for (const file of files) {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex justify-content-between align-items-center';
+            li.textContent = file.name;
+            const size = document.createElement('span');
+            size.className = 'badge bg-secondary';
+            size.textContent = (file.size / 1024 / 1024).toFixed(1) + ' MB';
+            li.appendChild(size);
+            fileListItems.appendChild(li);
+        }
+        uploadBtn.disabled = false;
+    } else {
+        fileList.style.display = 'none';
+        uploadBtn.disabled = true;
+    }
+}
+</script>
+{% endblock %}
