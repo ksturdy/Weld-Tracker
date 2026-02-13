@@ -1,4 +1,5 @@
 from app import create_app, db
+from app.models import InspectionReport, WeldEntry, StratusMap, UTDetail, UTIndication  # noqa
 
 app = create_app()
 
