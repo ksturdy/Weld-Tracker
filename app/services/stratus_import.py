@@ -16,6 +16,9 @@ def import_stratus_map(xlsx_path):
     wb = load_workbook(xlsx_path, read_only=True, data_only=True)
     summary = {'sheets_processed': 0, 'entries_imported': 0, 'entries_updated': 0}
 
+    # Load all existing labels in one query to avoid per-row lookups
+    existing_map = {s.weld_label: s for s in StratusMap.query.all()}
+
     for sheet_name in wb.sheetnames:
         ws = wb[sheet_name]
         rows = list(ws.iter_rows(values_only=True))
@@ -55,8 +58,8 @@ def import_stratus_map(xlsx_path):
             if col_map.get('desc') is not None and len(row) > col_map['desc'] and row[col_map['desc']]:
                 description = str(row[col_map['desc']]).strip()
 
-            # Upsert: update if exists, insert if new
-            existing = StratusMap.query.filter_by(weld_label=label).first()
+            # Upsert using in-memory lookup (no per-row DB query)
+            existing = existing_map.get(label)
             if existing:
                 existing.package_number = package
                 existing.size = size
@@ -74,6 +77,7 @@ def import_stratus_map(xlsx_path):
                     sheet_name=sheet_name,
                 )
                 db.session.add(entry)
+                existing_map[label] = entry
                 summary['entries_imported'] += 1
 
     db.session.commit()

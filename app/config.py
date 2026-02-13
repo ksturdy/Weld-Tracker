@@ -11,6 +11,12 @@ class Config:
     if SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
         SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgres://', 'postgresql://', 1)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 280,
+        'pool_size': 5,
+        'max_overflow': 2,
+    }
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), os.environ.get('UPLOAD_FOLDER', 'uploads'))
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50 MB max upload
     POPPLER_PATH = os.environ.get(
