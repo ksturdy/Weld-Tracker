@@ -1,5 +1,5 @@
 import os
-from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app
+from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app, jsonify
 from werkzeug.utils import secure_filename
 from app.services.import_service import process_pdf
 from app.services.excel_import import import_nde_dashboard
@@ -15,24 +15,31 @@ def upload_page():
 
 @upload_bp.route('/upload', methods=['POST'])
 def upload_file():
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
     if 'pdf_files' not in request.files:
+        if is_ajax:
+            return jsonify({'results': [{'filename': '', 'status': 'error', 'message': 'No files selected.'}]}), 400
         flash('No files selected.', 'error')
         return redirect(url_for('upload.upload_page'))
 
     files = request.files.getlist('pdf_files')
     if not files or all(f.filename == '' for f in files):
+        if is_ajax:
+            return jsonify({'results': [{'filename': '', 'status': 'error', 'message': 'No files selected.'}]}), 400
         flash('No files selected.', 'error')
         return redirect(url_for('upload.upload_page'))
 
     upload_folder = current_app.config['UPLOAD_FOLDER']
     os.makedirs(upload_folder, exist_ok=True)
 
-    success_count = 0
-    error_messages = []
+    results = []
 
     for file in files:
         if not file.filename or not file.filename.lower().endswith('.pdf'):
-            error_messages.append(f'{file.filename}: Not a PDF file.')
+            results.append({'filename': file.filename, 'status': 'error', 'message': 'Not a PDF file.'})
+            if not is_ajax:
+                flash(f'{file.filename}: Not a PDF file.', 'error')
             continue
 
         filename = secure_filename(file.filename)
@@ -42,14 +49,19 @@ def upload_file():
         try:
             report = process_pdf(filepath, file.filename)
             weld_count = report.weld_entries.count()
-            success_count += 1
-            flash(f'{file.filename}: Processed successfully - {report.inspection_type} report with {weld_count} weld entries.', 'success')
+            msg = f'{report.inspection_type} report with {weld_count} weld entries.'
+            results.append({'filename': file.filename, 'status': 'success', 'message': msg})
+            if not is_ajax:
+                flash(f'{file.filename}: Processed successfully - {msg}', 'success')
         except Exception as e:
-            error_messages.append(f'{file.filename}: {str(e)}')
+            results.append({'filename': file.filename, 'status': 'error', 'message': str(e)})
+            if not is_ajax:
+                flash(f'{file.filename}: {str(e)}', 'error')
 
-    for msg in error_messages:
-        flash(msg, 'error')
+    if is_ajax:
+        return jsonify({'results': results})
 
+    success_count = sum(1 for r in results if r['status'] == 'success')
     if success_count > 0:
         return redirect(url_for('dashboard.index'))
     return redirect(url_for('upload.upload_page'))

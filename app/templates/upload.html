@@ -50,6 +50,26 @@
         </div>
     </div>
 </div>
+
+<!-- Progress Overlay -->
+<div id="uploadOverlay" class="upload-overlay" style="display: none;">
+    <div class="upload-progress-card">
+        <h5 class="mb-3">Processing Inspection Reports</h5>
+        <div class="progress-ring">
+            <svg viewBox="0 0 140 140">
+                <circle class="progress-ring__bg" cx="70" cy="70" r="60"/>
+                <circle id="progressCircle" class="progress-ring__fill" cx="70" cy="70" r="60"
+                        stroke-dasharray="376.99" stroke-dashoffset="376.99"/>
+            </svg>
+            <div class="progress-ring__text">
+                <span id="progressPercent">0%</span>
+                <small id="progressLabel">Preparing...</small>
+            </div>
+        </div>
+        <p id="currentFileName" class="text-muted mb-2" style="font-size: 0.9rem;"></p>
+        <ul id="fileStatusList" class="upload-file-status"></ul>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -59,7 +79,10 @@ const fileInput = document.getElementById('fileInput');
 const fileList = document.getElementById('fileList');
 const fileListItems = document.getElementById('fileListItems');
 const uploadBtn = document.getElementById('uploadBtn');
+const uploadForm = document.getElementById('uploadForm');
+const CIRCUMFERENCE = 2 * Math.PI * 60;
 
+// --- Drag and drop ---
 dropZone.addEventListener('click', () => fileInput.click());
 
 dropZone.addEventListener('dragover', (e) => {
@@ -101,5 +124,128 @@ function updateFileList() {
         uploadBtn.disabled = true;
     }
 }
+
+// --- Progress ring helpers ---
+function setProgress(fraction) {
+    const circle = document.getElementById('progressCircle');
+    circle.style.strokeDashoffset = CIRCUMFERENCE * (1 - fraction);
+    document.getElementById('progressPercent').textContent = Math.round(fraction * 100) + '%';
+}
+
+function showOverlay(files) {
+    const overlay = document.getElementById('uploadOverlay');
+    const statusList = document.getElementById('fileStatusList');
+    statusList.innerHTML = '';
+
+    for (let i = 0; i < files.length; i++) {
+        const li = document.createElement('li');
+        li.id = 'file-status-' + i;
+        li.innerHTML = '<span class="file-status-icon pending">&#9675;</span>' +
+            '<span class="text-truncate">' + files[i].name + '</span>';
+        statusList.appendChild(li);
+    }
+
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => overlay.classList.add('active'));
+    setProgress(0);
+}
+
+function setFileStatus(index, status, message) {
+    const li = document.getElementById('file-status-' + index);
+    if (!li) return;
+    const iconSpan = li.querySelector('.file-status-icon');
+    const circle = document.getElementById('progressCircle');
+
+    if (status === 'processing') {
+        iconSpan.className = 'file-status-icon processing';
+        iconSpan.innerHTML = '<span class="spin">&#8635;</span>';
+        circle.classList.add('processing');
+    } else if (status === 'success') {
+        iconSpan.className = 'file-status-icon success';
+        iconSpan.innerHTML = '&#10003;';
+        circle.classList.remove('processing');
+        if (message) {
+            const detail = document.createElement('span');
+            detail.className = 'text-muted ms-auto';
+            detail.style.fontSize = '0.75rem';
+            detail.textContent = message;
+            li.appendChild(detail);
+        }
+    } else if (status === 'error') {
+        iconSpan.className = 'file-status-icon error';
+        iconSpan.innerHTML = '&#10007;';
+        circle.classList.remove('processing');
+        if (message) {
+            const detail = document.createElement('span');
+            detail.className = 'text-danger ms-auto';
+            detail.style.fontSize = '0.75rem';
+            detail.textContent = message;
+            li.appendChild(detail);
+        }
+    }
+}
+
+// --- AJAX upload: send files one at a time ---
+uploadForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const files = fileInput.files;
+    if (!files || files.length === 0) return;
+
+    uploadBtn.disabled = true;
+    showOverlay(files);
+
+    let successCount = 0;
+
+    for (let i = 0; i < files.length; i++) {
+        document.getElementById('currentFileName').textContent = 'Processing: ' + files[i].name;
+        document.getElementById('progressLabel').textContent = i + ' of ' + files.length + ' done';
+        setFileStatus(i, 'processing');
+
+        const formData = new FormData();
+        formData.append('pdf_files', files[i]);
+
+        try {
+            const response = await fetch('{{ url_for("upload.upload_file") }}', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData,
+            });
+
+            const data = await response.json();
+            const result = data.results[0];
+
+            if (result.status === 'success') {
+                setFileStatus(i, 'success', result.message);
+                successCount++;
+            } else {
+                setFileStatus(i, 'error', result.message);
+            }
+        } catch (err) {
+            setFileStatus(i, 'error', 'Network error');
+        }
+
+        setProgress((i + 1) / files.length);
+        document.getElementById('progressLabel').textContent = (i + 1) + ' of ' + files.length + ' done';
+    }
+
+    // Show completion state
+    document.getElementById('currentFileName').textContent =
+        successCount > 0 ? 'All files processed!' : 'Processing complete with errors.';
+    document.getElementById('progressLabel').textContent = 'Complete';
+
+    // Pause to show 100% then redirect
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    if (successCount > 0) {
+        window.location.href = '{{ url_for("dashboard.index") }}';
+    } else {
+        document.getElementById('uploadOverlay').classList.remove('active');
+        setTimeout(() => {
+            document.getElementById('uploadOverlay').style.display = 'none';
+        }, 300);
+        uploadBtn.disabled = false;
+    }
+});
 </script>
 {% endblock %}
