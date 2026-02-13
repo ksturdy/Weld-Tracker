@@ -42,6 +42,15 @@
                 </select>
             </div>
             <div class="col-auto">
+                <label class="form-label small mb-0">Source PDF</label>
+                <select name="report_id" class="form-select form-select-sm">
+                    <option value="">All Files</option>
+                    {% for report in all_reports %}
+                    <option value="{{ report.id }}" {{ 'selected' if filters.report_id == report.id|string }}>{{ report.pdf_filename or report.job_number }} ({{ report.inspection_type }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
                 <button type="submit" class="btn btn-sm btn-primary">Filter</button>
                 <a href="{{ url_for('dashboard.index') }}" class="btn btn-sm btn-outline-secondary">Clear</a>
             </div>

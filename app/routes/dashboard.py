@@ -14,7 +14,11 @@ def index():
         'date_from': request.args.get('date_from', ''),
         'date_to': request.args.get('date_to', ''),
         'result': request.args.get('result', ''),
+        'report_id': request.args.get('report_id', ''),
     }
+
+    # Get all reports for the file filter dropdown
+    all_reports = InspectionReport.query.order_by(InspectionReport.inspection_date.desc()).all()
 
     # Build query
     query = db.session.query(WeldEntry, InspectionReport).join(
@@ -37,6 +41,11 @@ def index():
             pass
     if filters['result']:
         query = query.filter(WeldEntry.evaluation.ilike(f"%{filters['result']}%"))
+    if filters['report_id']:
+        try:
+            query = query.filter(InspectionReport.id == int(filters['report_id']))
+        except ValueError:
+            pass
 
     entries = query.order_by(InspectionReport.inspection_date.desc()).all()
 
@@ -53,7 +62,7 @@ def index():
         'reports': report_count,
     }
 
-    return render_template('dashboard.html', entries=entries, filters=filters, stats=stats)
+    return render_template('dashboard.html', entries=entries, filters=filters, stats=stats, all_reports=all_reports)
 
 
 @dashboard_bp.route('/report/<int:report_id>')
