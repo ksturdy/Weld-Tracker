@@ -78,10 +78,10 @@ class BaseExtractor:
         return self.pages_text
 
     def _ocr_fallback(self):
-        """Use OCR to extract text from scanned PDFs.
+        """Use OCR to extract text from scanned/garbled PDFs.
 
-        Handles PDFs with duplicate pages by detecting 'Page X of Y' markers
-        and stopping early to avoid processing redundant pages.
+        Processes one page at a time to keep memory usage low,
+        which is critical for constrained environments like Render free tier.
         """
         try:
             from pdf2image import convert_from_path
@@ -90,26 +90,36 @@ class BaseExtractor:
             _configure_tesseract()
 
             poppler_path = _get_poppler_path()
-            kwargs = {'dpi': 300}
-            if poppler_path:
-                kwargs['poppler_path'] = poppler_path
 
-            images = convert_from_path(self.pdf_path, **kwargs)
+            # Use lower DPI in production (memory-constrained) environments
+            dpi = int(os.environ.get('OCR_DPI', '200'))
+
+            base_kwargs = {}
+            if poppler_path:
+                base_kwargs['poppler_path'] = poppler_path
+
+            # Get total page count without converting
+            import pdfplumber
+            with pdfplumber.open(self.pdf_path) as pdf:
+                total_pages = len(pdf.pages)
+
             self.pages_text = []
             self.tables = []
 
-            total_pages_expected = None
-            for i, image in enumerate(images):
-                text = pytesseract.image_to_string(image)
-                self.pages_text.append(text)
-
-                # Look for "Page N of M" to detect total real pages
-                m = re.search(r'Page\s+(\d+)\s+of\s+(\d+)', text, re.IGNORECASE)
-                if m:
-                    total_pages_expected = int(m.group(2))
-                    # If we've processed all real pages, stop
-                    if len(self.pages_text) >= total_pages_expected:
-                        break
+            # Process one page at a time to limit memory usage
+            for page_num in range(1, total_pages + 1):
+                images = convert_from_path(
+                    self.pdf_path,
+                    dpi=dpi,
+                    first_page=page_num,
+                    last_page=page_num,
+                    **base_kwargs,
+                )
+                if images:
+                    text = pytesseract.image_to_string(images[0])
+                    self.pages_text.append(text)
+                    # Release image memory immediately
+                    del images
 
         except ImportError:
             pass  # OCR dependencies not available
